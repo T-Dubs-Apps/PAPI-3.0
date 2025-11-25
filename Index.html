@@ -1,0 +1,236 @@
+import streamlit as st
+from textblob import TextBlob
+from better_profanity import profanity
+import pyttsx3
+import speech_recognition as sr
+import threading
+import logging
+import time
+from PIL import Image
+
+# --- 1. SYSTEM LOGGING & CONFIG ---
+logging.basicConfig(filename='papi_system.log', level=logging.ERROR, 
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
+st.set_page_config(page_title="PAPI-3 Guardian", page_icon="🤖", layout="wide")
+
+# --- 2. SESSION STATE INITIALIZATION ---
+if 'user_tier' not in st.session_state: st.session_state['user_tier'] = None
+if 'chat_history' not in st.session_state: st.session_state['chat_history'] = []
+if 'user_avatar' not in st.session_state: st.session_state['user_avatar'] = "👤"
+if 'assistant_name' not in st.session_state: st.session_state['assistant_name'] = "PAPI"
+if 'last_voice_input' not in st.session_state: st.session_state['last_voice_input'] = None
+
+# --- 3. VOICE ENGINE (OFFLINE & ONLINE HYBRID) ---
+def speak_text(text):
+    """
+    Text-to-Speech (TTS): 100% Offline using OS native drivers.
+    Runs in a daemon thread to prevent UI locking.
+    """
+    def _speak():
+        try:
+            engine = pyttsx3.init()
+            # Optional: engine.setProperty('rate', 150)
+            engine.say(text)
+            engine.runAndWait()
+        except Exception as e:
+            logging.error(f"TTS Failure: {e}")
+
+    t = threading.Thread(target=_speak)
+    t.daemon = True
+    t.start()
+
+def listen_to_mic():
+    """
+    Speech-to-Text (STT): Requires Internet for Google API accuracy.
+    """
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.toast("Listening... Speak now!", icon="🎙️")
+        try:
+            r.adjust_for_ambient_noise(source, duration=0.5)
+            audio = r.listen(source, timeout=5, phrase_time_limit=10)
+            return r.recognize_google(audio)
+        except Exception as e:
+            logging.error(f"STT Failure: {e}")
+            return None
+
+# --- 4. VISUALS & ACCESSIBILITY ---
+def inject_css(tier, high_contrast, font_size):
+    css = f"""
+    <style>
+    html, body, [class*="css"] {{ font-size: {font_size}px !important; }}
+    """
+    
+    if high_contrast:
+        # WCAG AAA Compliant Colors
+        css += """
+        .stApp { background-color: #000000 !important; color: #FFFF00 !important; }
+        .stButton > button { background-color: #FFFF00 !important; color: #000000 !important; border: 2px solid #FFFFFF !important; font-weight: bold !important; }
+        .stTextInput > div > div > input { background-color: #333333 !important; color: #FFFFFF !important; }
+        [data-testid="stSidebar"] { background-color: #111111 !important; border-right: 2px solid #FFFF00; }
+        </style>
+        """
+    elif tier == "Child":
+        # Calm Mode
+        css += """
+        .stApp { background-color: #f0f2f6; color: #31333F; }
+        </style>
+        """
+    else:
+        # Professional Pulsating Mode
+        css += """
+        @keyframes gradientPulse {
+            0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;}
+        }
+        .stApp {
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            background-size: 200% 200%;
+            animation: gradientPulse 10s ease infinite;
+            color: white;
+        }
+        </style>
+        """
+    st.markdown(css, unsafe_allow_html=True)
+
+# --- 5. INTELLIGENCE & SAFETY ---
+def guardian_scan(text, tier):
+    """Filters profanity and checks child sentiment."""
+    try:
+        if profanity.contains_profanity(text):
+            return False, "⚠️ Language Alert: Please use kind words."
+        if tier == "Child":
+            blob = TextBlob(text)
+            if blob.sentiment.polarity < -0.3:
+                 return True, "intervention"
+        return True, "clean"
+    except: return True, "clean" # Fallback
+
+def papi_brain(text, tier, safety_status, name):
+    if safety_status == "intervention":
+        return f"I notice you seem a bit down. {name} is here to help! Let's take a breath together. 🦁"
+    elif tier == "Child":
+        return f"That's a fascinating question! Why do you think '{text}' happens? ({name} wants to know!)"
+    else:
+        return f"[{name} SYSTEM]: Processing inquiry: '{text}'. Status: Complete."
+
+# --- 6. MAIN INTERFACE ---
+def main():
+    # Sidebar Logic
+    with st.sidebar:
+        st.title("⚙️ Control Panel")
+        
+        # Not Logged In
+        if st.session_state['user_tier'] is None:
+            st.subheader("🔐 Login")
+            key = st.text_input("Access Key", type="password")
+            if st.button("Connect"):
+                if key == "0000":
+                    st.session_state['user_tier'] = "Child"
+                    st.session_state['user_avatar'] = "🐼"
+                    st.session_state['assistant_name'] = "Mentor"
+                    st.experimental_rerun()
+                elif key == "2222":
+                    st.session_state['user_tier'] = "Silver"
+                    st.experimental_rerun()
+                elif key == "7777":
+                    st.session_state['user_tier'] = "Platinum"
+                    st.experimental_rerun()
+                else:
+                    st.error("Invalid Key")
+        
+        # Logged In
+        else:
+            tier = st.session_state['user_tier']
+            st.success(f"Tier: {tier}")
+            
+            # Customization
+            st.write("### Identity")
+            if tier == "Child":
+                st.info(f"Name: **{st.session_state['assistant_name']}**")
+                avatars = {"🦁 Lion": "🦁", "🐼 Panda": "🐼", "🦖 Dino": "🦖"}
+                choice = st.selectbox("Buddy:", list(avatars.keys()))
+                st.session_state['user_avatar'] = avatars[choice]
+                
+                with st.expander("Parent Settings 🔒"):
+                    pin = st.text_input("PIN", type="password")
+                    if pin == "1234":
+                        new_name = st.text_input("Rename Bot", st.session_state['assistant_name'])
+                        if st.button("Save"):
+                            st.session_state['assistant_name'] = new_name
+                            st.experimental_rerun()
+            else:
+                new_name = st.text_input("Rename", st.session_state['assistant_name'])
+                if new_name != st.session_state['assistant_name']:
+                    st.session_state['assistant_name'] = new_name
+                    st.experimental_rerun()
+                
+                up_file = st.file_uploader("Icon", type=['jpg','png'])
+                if up_file: 
+                    st.image(up_file, width=80)
+                    st.session_state['user_avatar'] = "⚡"
+
+            # Accessibility
+            st.divider()
+            font_size = st.slider("Text Size", 16, 32, 18)
+            hc_mode = st.checkbox("High Contrast")
+            tts_mode = st.checkbox("Auto-Speak", value=(tier=="Child"))
+            
+            # Inject CSS
+            inject_css(tier, hc_mode, font_size)
+            
+            if st.button("Logout"):
+                st.session_state.clear()
+                st.experimental_rerun()
+
+    # Main Chat Area
+    st.header(f"{st.session_state['assistant_name']} Online {st.session_state['user_avatar']}")
+    
+    if st.session_state['user_tier']:
+        # Display History
+        for chat in st.session_state['chat_history']:
+            role_label = chat["role"]
+            if role_label == "assistant": role_label = st.session_state['assistant_name']
+            with st.chat_message(chat["role"]):
+                st.write(chat["msg"])
+
+        # Input Area
+        col1, col2 = st.columns([8, 1])
+        with col1:
+            text_input = st.chat_input("Message...")
+        with col2:
+            if st.button("🎙️"):
+                v_text = listen_to_mic()
+                if v_text:
+                    st.session_state['last_voice_input'] = v_text
+                    st.experimental_rerun()
+
+        # Handle Input
+        final_input = text_input or st.session_state['last_voice_input']
+        if st.session_state['last_voice_input']: st.session_state['last_voice_input'] = None
+
+        if final_input:
+            st.session_state['chat_history'].append({"role": "user", "msg": final_input})
+            with st.chat_message("user"):
+                st.write(final_input)
+            
+            safe, status = guardian_scan(final_input, st.session_state['user_tier'])
+            
+            if not safe:
+                reply = f"[BLOCK]: {status}"
+            else:
+                reply = papi_brain(final_input, st.session_state['user_tier'], status, st.session_state['assistant_name'])
+            
+            st.session_state['chat_history'].append({"role": "assistant", "msg": reply})
+            with st.chat_message("assistant"):
+                st.write(reply)
+            
+            if tts_mode:
+                speak_text(reply)
+    else:
+        st.info("Please enter your key in the sidebar.")
+
+if __name__ == "__main__":
+    main()
+
+
