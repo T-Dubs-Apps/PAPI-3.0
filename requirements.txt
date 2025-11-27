@@ -1,5 +1,5 @@
-streamlit==1.32.0
-gTTS==2.5.1
-# ... any other libraries you are using
-textblob==0.17.1
+streamlit
+gTTS
+textblob
+# (and any other libraries you use)
 better_profanity==0.7.0
