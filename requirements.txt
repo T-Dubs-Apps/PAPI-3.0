@@ -1,8 +1,0 @@
-streamlit
-textblob
-better_profanity
-google-generativeai
-pyinstaller
-pyttsx3
-SpeechRecognition
-pyaudio
