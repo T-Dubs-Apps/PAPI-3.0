@@ -1,5 +1,0 @@
-streamlit
-gTTS
-textblob
-# (and any other libraries you use)
-better_profanity==0.7.0
