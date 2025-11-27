@@ -1,4 +1,0 @@
-streamlit
-textblob
-better_profanity
-gTTS
