@@ -1,0 +1,4 @@
+streamlit==1.32.0
+textblob==0.17.1
+better_profanity==0.7.0
+gTTS==2.5.1
