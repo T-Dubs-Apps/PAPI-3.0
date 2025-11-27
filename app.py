@@ -21,7 +21,7 @@ if 'assistant_name' not in st.session_state: st.session_state['assistant_name'] 
 
 def get_audio_bytes(text):
     try:
-        tts = gTTS(text, lang='en')
+        tts = gtts(text, lang='en')
         fp = io.BytesIO()
         tts.write_to_fp(fp)
         fp.seek(0)
