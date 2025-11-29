@@ -1,4 +1,0 @@
-streamlit
-gTTS
-textblob
-watchdog
