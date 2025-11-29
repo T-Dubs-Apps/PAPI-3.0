@@ -1,0 +1,3 @@
+git add .
+git commit -m "Fix requirements and regenerate PAPI 3.0"
+git push
