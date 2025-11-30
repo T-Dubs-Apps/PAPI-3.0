@@ -1,0 +1,4 @@
+streamlit==1.40.1
+gTTS==2.5.1
+textblob==0.18.0.post0
+watchdog
