@@ -1,0 +1,5 @@
+.venv
+pycache
+*.mp3
+.DS_Store
+.env
